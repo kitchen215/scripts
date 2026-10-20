@@ -64,11 +64,11 @@ def fetch(no: str) -> dict:
     body = BODY_TEMPLATE.replace("{no}", no)
     r = s.post(API_URL, data=body.encode("utf-8"), headers={"Referer": page}, timeout=20)
     if r.status_code != 200:
-        sys.exit(f"HTTP {r.status_code} 응답:\n{r.text[:1000]}\n\n보낸 본문: {body}")
+        raise RuntimeError(f"HTTP {r.status_code} 응답:\n{r.text[:1000]}\n\n보낸 본문: {body}")
     try:
         return r.json()
     except ValueError:
-        sys.exit(f"JSON이 아닌 응답입니다 (HTTP {r.status_code}):\n{r.text[:500]}")
+        raise RuntimeError(f"JSON이 아닌 응답입니다 (HTTP {r.status_code}):\n{r.text[:500]}")
 
 
 def find_lists(obj, path=""):
@@ -176,12 +176,16 @@ def main():
     p.add_argument("--interval", type=int, default=30, help="watch 조회 간격(분), 최소 5")
     a = p.parse_args()
 
-    if a.command == "dump":
-        cmd_dump(a.reg_no)
-    elif a.command == "list":
-        cmd_list(a.reg_no)
-    else:
+    if a.command == "watch":
         cmd_watch(a.reg_no, max(a.interval, 5))
+        return
+    try:
+        if a.command == "dump":
+            cmd_dump(a.reg_no)
+        else:
+            cmd_list(a.reg_no)
+    except (RuntimeError, requests.RequestException) as e:
+        sys.exit(str(e))
 
 
 if __name__ == "__main__":
